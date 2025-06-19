@@ -12,8 +12,13 @@ interface UploadWidgetUploadItemProps {
 }
 
 export function UploadWidgetUploadItem({ uploadId, upload }: UploadWidgetUploadItemProps) {
-  const { name, file } = upload;
+  const { name, uploadSizeInBytes, originalSizeInBytes } = upload;
   const cancelUpload = useUploads(store => store.cancelUpload);
+
+  const progress = Math.min(
+    Math.round((uploadSizeInBytes * 100) / originalSizeInBytes),
+    100
+  );
 
   return (
     <motion.div
@@ -29,16 +34,17 @@ export function UploadWidgetUploadItem({ uploadId, upload }: UploadWidgetUploadI
         </span>
 
         <span className="text-xxs text-zinc-400 flex gap-1.5 items-center">
-          <span className="line-through">{formatBytes(file.size)}</span>
+          <span className="line-through">
+            {formatBytes(originalSizeInBytes)}
+          </span>
           <div className="size-1 rounded-full bg-zinc-700" />
           <span>
-          {file.size}
+            {originalSizeInBytes}
             <span className="text-green-400 ml-1">-94%</span>
           </span>
           <div className="size-1 rounded-full bg-zinc-700" />
 
-          {upload.status === "success" && <span>100%</span>}
-          {upload.status === "progress" && <span>45%</span>}
+          {["sucess", "progress"].includes(upload.status) && <span>{progress}</span>}
           {upload.status === "error" && (
             <span className="text-red-400">Error</span>
           )}
