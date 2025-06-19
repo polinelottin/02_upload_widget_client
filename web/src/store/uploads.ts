@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { enableMapSet } from "immer";
 import { immer } from "zustand/middleware/immer";
+import { uploadFilesToStorage } from "../http/upload-files-to-storage";
 
 export type Upload = {
   name: string;
@@ -14,7 +15,15 @@ type UploadState = {
 
 enableMapSet();
 
-export const useUploads = create<UploadState, [["zustand/immer", never]]>(immer((set) => {
+export const useUploads = create<UploadState, [["zustand/immer", never]]>(immer((set, get) => {
+  async function processUpload(uploadId: string) {
+    const upload = get().uploads.get(uploadId);
+
+    if (!upload) return;
+
+    await uploadFilesToStorage({ file: upload.file });
+  }
+
   const addUploads = (files: File[]) => {
     files.forEach((file) => {
       const uploadId = crypto.randomUUID();
@@ -27,6 +36,8 @@ export const useUploads = create<UploadState, [["zustand/immer", never]]>(immer(
       set((state) => {
         state.uploads.set(uploadId, upload)
       });
+
+      processUpload(uploadId);
     });
     
   };
