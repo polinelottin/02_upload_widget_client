@@ -2,15 +2,19 @@ import { create } from "zustand";
 import { enableMapSet } from "immer";
 import { immer } from "zustand/middleware/immer";
 import { uploadFilesToStorage } from "../http/upload-files-to-storage";
+import { CanceledError } from "axios";
 
 export type Upload = {
   name: string;
   file: File;
+  abortController: AbortController;
+  status: "progress" | "success" | "error" | "canceled";
 };
 
 type UploadState = {
   uploads: Map<string, Upload>;
   addUploads: (files: File[]) => void;
+  cancelUpload: (uploadId: string) => void;
 };
 
 enableMapSet();
@@ -21,20 +25,59 @@ export const useUploads = create<UploadState, [["zustand/immer", never]]>(immer(
 
     if (!upload) return;
 
-    await uploadFilesToStorage({ file: upload.file });
+    try {
+      await uploadFilesToStorage(
+        { file: upload.file },
+        { signal: upload.abortController.signal }
+      );
+
+      set((state) => {
+        state.uploads.set(uploadId, {
+          ...upload,
+          status: "success",
+        })
+      });
+    } catch (error) {
+      if (error instanceof CanceledError) {
+        set((state) => {
+          state.uploads.set(uploadId, {
+            ...upload,
+            status: "canceled",
+          });
+        });
+      } else {
+        set((state) => {
+          state.uploads.set(uploadId, {
+            ...upload,
+            status: "error",
+          });
+        });
+      }
+    }
   }
+
+  const cancelUpload = (uploadId: string) => {
+    const upload = get().uploads.get(uploadId);
+
+    if (!upload) return;
+
+    upload.abortController.abort();
+  };
 
   const addUploads = (files: File[]) => {
     files.forEach((file) => {
       const uploadId = crypto.randomUUID();
+      const abortController = new AbortController();
 
-      const upload = {
+      const upload: Upload = {
         name: file.name,
         file,
+        abortController,
+        status: "progress",
       };
 
       set((state) => {
-        state.uploads.set(uploadId, upload)
+        state.uploads.set(uploadId, upload);
       });
 
       processUpload(uploadId);
@@ -45,5 +88,6 @@ export const useUploads = create<UploadState, [["zustand/immer", never]]>(immer(
   return {
     uploads: new Map<string, Upload>(),
     addUploads,
+    cancelUpload,
   };
 }));
