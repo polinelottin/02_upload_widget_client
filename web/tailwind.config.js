@@ -19,6 +19,14 @@ module.exports = {
         2: '0.02',
         50: '0.50',
       },
+      animation: {
+        border: "border 2s linear infinite",
+      },
+      keyframes: {
+        border: {
+          to: { "--border-angle": "360deg" },
+        },
+      },
     },
   },
   plugins: [],
